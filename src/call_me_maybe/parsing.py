@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 from pydantic import ValidationError
-from .model import FunctionDefinition
+from .functionDefinition import FunctionDefinition
 
 
 class Parsing:
@@ -40,9 +40,12 @@ class Parsing:
 
         try:
             for item in data:
-                functions.append(
-                    FunctionDefinition.model_validate(item)
-                )
+                functions.append( FunctionDefinition(
+        **item,
+        full_definition=json.dumps(
+            item,
+            ensure_ascii=False,
+        ),))
         except (ValidationError, ValueError, TypeError) as error:
             print(f"Invalid function definition: {error}")
             return []
@@ -57,3 +60,5 @@ class Parsing:
         raise NotImplementedError(
             "Function selection has not been implemented yet."
         )
+    
+	

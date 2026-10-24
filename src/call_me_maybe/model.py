@@ -3,6 +3,7 @@
 from typing import Dict, List
 import json
 from llm_sdk import Small_LLM_Model
+from .functionDefinition import FunctionDefinition
 
 
 class Model(Small_LLM_Model):
@@ -116,15 +117,19 @@ class Model(Small_LLM_Model):
         """
         try:
             logits = self.get_logits(ids)
+            print("Tokens avec -inf :", sum(
+    score == float("-inf") for score in logits
+))
 
             if not logits:
                 print("Next token selection issue: logits are empty.")
                 return -1
 
             return max(
-                range(len(logits)),
+                (i for i, score in enumerate(logits) if score != float("-inf")),
                 key=lambda i: logits[i],
-            )
+                default=-1,
+)
         except (ValueError, TypeError, IndexError, RuntimeError) as e:
             print(f"Next token selection issue: {e}")
             return -1
@@ -153,9 +158,15 @@ class Model(Small_LLM_Model):
 
             generated_ids.append(next_token)
             ids.append(next_token)
+            text = self.get_decode(generated_ids)
 
-            #todo :  Stop if the model generates its end-of-sequence token.
-            #todo :  We will need a reliable way to identify this token.
+            stripped = text.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                try:
+                    json.loads(stripped)
+                    return stripped
+                except json.JSONDecodeError:
+                    pass
 
         return self.get_decode(generated_ids)
 
