@@ -117,9 +117,6 @@ class Model(Small_LLM_Model):
         """
         try:
             logits = self.get_logits(ids)
-            print("Tokens avec -inf :", sum(
-    score == float("-inf") for score in logits
-))
 
             if not logits:
                 print("Next token selection issue: logits are empty.")

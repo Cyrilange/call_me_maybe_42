@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 import json
-
+from pathlib import Path
 from call_me_maybe.model import Model
 from call_me_maybe.parsing import Parsing
 from call_me_maybe.functionDefinition import FunctionDefinition
@@ -57,31 +57,67 @@ def call_the_structred_functions( model: Model, prompt: str, definitions: List[D
 
 
 
+
 def main() -> None:
-    model = Model()
     parsing = Parsing()
-
-    prompt = parsing.get_the_prompt()
-    definitions = parsing.read_json_file()
-
-    if not prompt:
-        print("Error: please provide a prompt.")
-        return
-
-    if not definitions:
-        print("Error: no function definitions were loaded.")
-        return
+    args = parsing.parse_arguments()
 
     try:
-        result = call_the_structred_functions(
-            model,
-            prompt,
-            definitions,
+        definitions = parsing.read_json_file(
+            args.functions_definition
         )
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    except ValueError as error:
-        print(f"Error: {error}")
 
+        if not definitions:
+            raise ValueError("No function definitions were loaded.")
+
+        model = Model()
+
+        if args.prompt:
+            result = call_the_structred_functions(
+                model,
+                args.prompt,
+                definitions,
+            )
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return
+
+        input_path = Path(args.input)
+        with input_path.open("r", encoding="utf-8") as file:
+            tests = json.load(file)
+
+        if not isinstance(tests, list):
+            raise ValueError("The input JSON must contain a list.")
+
+        results = []
+        for test in tests:
+            if isinstance(test, str):
+                prompt = test
+            elif isinstance(test, dict):
+                prompt = test.get("prompt", test.get("input"))
+            else:
+                raise ValueError("Invalid test entry.")
+
+            if not isinstance(prompt, str) or not prompt.strip():
+                raise ValueError("A test is missing its prompt.")
+
+            results.append(
+                call_the_structred_functions(
+                    model,
+                    prompt,
+                    definitions,
+                )
+            )
+
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with output_path.open("w", encoding="utf-8") as file:
+            json.dump(results, file, indent=2, ensure_ascii=False)
+
+        print(f"Results written to {output_path}")
+
+    except (ValueError, OSError, json.JSONDecodeError) as error:
+        print(f"Error: {error}")
 
 if __name__ == "__main__":
     main()

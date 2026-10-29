@@ -1,64 +1,76 @@
-"""ABOUTME: parse the response"""
 
+"""Parse command-line arguments and load function definitions."""
+
+import argparse
 import json
-import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import List
+
 from pydantic import ValidationError
+
 from .functionDefinition import FunctionDefinition
 
 
 class Parsing:
-    """Load function definitions and prepare function selection."""
+    """Load function definitions and prepare input arguments."""
 
-    def get_the_prompt(self) -> str:
-        """Return the user's prompt from command-line arguments."""
-        return " ".join(sys.argv[1:])
-
-    def read_json_file(self) -> List[FunctionDefinition]:
-        """Load and validate the available function definitions."""
-        path = (
-            Path(__file__).resolve().parent.parent.parent
-            / "data"
-            / "input"
-            / "functions_definition.json"
+    def parse_arguments(self) -> argparse.Namespace:
+        """Parse CLI arguments."""
+        parser = argparse.ArgumentParser(
+            description="Introduction to function calling in LLMs"
         )
 
-        try:
-            with path.open("r", encoding="utf-8") as file:
-                data = json.load(file)
+        parser.add_argument(
+            "prompt",
+            nargs="?",
+            help="A single user request",
+        )
+        parser.add_argument(
+            "--functions_definition",
+            default="data/input/functions_definition.json",
+            help="Path to the function definitions JSON file",
+        )
+        parser.add_argument(
+            "--input",
+            default="data/input/function_calling_tests.json",
+            help="Path to the input JSON file",
+        )
+        parser.add_argument(
+            "--output",
+            default="data/output/function_calls.json",
+            help="Path to the output JSON file",
+        )
 
+        return parser.parse_args()
+
+    def read_json_file(
+        self,
+        path: str,
+    ) -> List[FunctionDefinition]:
+        """Load and validate function definitions."""
+        try:
+            with Path(path).open("r", encoding="utf-8") as file:
+                data = json.load(file)
         except (OSError, json.JSONDecodeError) as error:
-            print(f"Unable to read function definitions: {error}")
-            return []
+            raise ValueError(
+                f"Unable to read function definitions: {error}"
+            ) from error
 
         if not isinstance(data, list):
-            print("Invalid JSON structure: expected a list.")
-            return []
-
-        functions: List[FunctionDefinition] = []
+            raise ValueError("Expected a list of function definitions.")
 
         try:
-            for item in data:
-                functions.append( FunctionDefinition(
-        **item,
-        full_definition=json.dumps(
-            item,
-            ensure_ascii=False,
-        ),))
+            return [
+                FunctionDefinition(
+                    **item,
+                    full_definition=json.dumps(
+                        item,
+                        ensure_ascii=False,
+                    ),
+                )
+                for item in data
+            ]
         except (ValidationError, ValueError, TypeError) as error:
-            print(f"Invalid function definition: {error}")
-            return []
-
-        return functions
-
-    def searching_the_right_function_tool(
-        self,
-        functions: List[FunctionDefinition],
-    ) -> FunctionDefinition:
-        """Select the appropriate function using the language model."""
-        raise NotImplementedError(
-            "Function selection has not been implemented yet."
-        )
-    
-	
+            raise ValueError(
+                f"Invalid function definition: {error}"
+            ) from error

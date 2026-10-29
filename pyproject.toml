@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.2.6",
     "pydantic>=2.14.1",
     "llm-sdk",
+    "accelerate"
 ]
 
 [project.scripts]
